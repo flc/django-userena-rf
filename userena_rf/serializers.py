@@ -14,6 +14,7 @@ from userena import settings as userena_settings
 
 from rest_framework import serializers
 from rest_framework.reverse import reverse
+
 from .settings import USERNAME_RE, PASSWORD_MIN_LENGTH
 
 
