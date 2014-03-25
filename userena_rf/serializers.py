@@ -27,9 +27,6 @@ class SignInSerializer(serializers.Serializer):
         max_length=User._meta.get_field('email').max_length
         )
     password = serializers.CharField()
-    remember_me = serializers.BooleanField(
-        default=True,
-        )
 
     def validate(self, attrs):
         user = authenticate(
@@ -52,6 +49,12 @@ class SignInSerializer(serializers.Serializer):
             raise serializers.ValidationError(error)
 
         return attrs
+
+
+class SignInRememberMeSerializer(SignInSerializer):
+    remember_me = serializers.BooleanField(
+        default=False,
+        )
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -128,7 +131,6 @@ class SignUpSerializer(serializers.Serializer):
             'invalid': _('Username must contain only letters, numbers, dots and underscores.')
             },
         )
-
     email = serializers.EmailField(
         label=_("Email"),
         max_length=User._meta.get_field('email').max_length,
@@ -255,3 +257,10 @@ class SignUpTosSerializer(SignUpTosSerializerMixin, SignUpSerializer):
 
 class SignUpOnlyEmailTosSerializer(SignUpTosSerializerMixin, SignUpOnlyEmailSerializer):
     pass
+
+
+class UserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'username', 'first_name', 'last_name')

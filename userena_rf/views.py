@@ -4,6 +4,8 @@ from django.contrib.auth import (
         )
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import authenticate
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 
 from rest_framework import generics
 from rest_framework.views import APIView
@@ -19,11 +21,14 @@ from userena import signals as userena_signals
 from .permissions import IsNotAuthenticated
 from .serializers import (
     SignInSerializer,
+    SignInRememberMeSerializer,
     ChangePasswordSerializer,
     SignUpSerializer,
     SignUpOnlyEmailSerializer,
     )
 from .mixins import SecureRequiredMixin
+from .helpers import get_user_serializer_class
+from .settings import API_MESSAGE_KEY
 
 
 class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
@@ -36,7 +41,7 @@ class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
     def check_permissions(self, request):
         if userena_settings.USERENA_DISABLE_SIGNUP:
             raise exceptions.PermissionDenied(
-                _('Sign up is currently disabled')
+                _('Sign up is currently disabled.')
                 )
 
         return super(SignUpView, self).check_permissions(request)
@@ -73,7 +78,7 @@ class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
                 signed_in = True
 
             return Response({
-                'detail': _('Signed up successfully.'),
+                API_MESSAGE_KEY: _('Signed up successfully.'),
                 'username': new_user.username,
                 'signed_in': signed_in,
                 })
@@ -89,12 +94,7 @@ class SignInView(SecureRequiredMixin, generics.GenericAPIView):
     serializer_class = SignInSerializer
 
     def set_session_expiry(self, request):
-        if request.DATA.get('remember_me'):
-            request.session.set_expiry(
-                userena_settings.USERENA_REMEMBER_ME_DAYS[1] * 86400
-                )
-        else:
-            request.session.set_expiry(0)
+        request.session.set_expiry(0)
 
     def post(self, request, format=None):
         serializer_class = self.get_serializer_class()
@@ -110,14 +110,26 @@ class SignInView(SecureRequiredMixin, generics.GenericAPIView):
             userena_signals.account_signin.send(sender=None, user=user)
 
             return Response({
-                'detail': _('Signed in successfully.'),
-                'username': user.username
+                API_MESSAGE_KEY: _('Signed in successfully.'),
+                'user': get_user_serializer_class()(user).data
                 })
 
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
     def permission_denied(self, request):
         raise exceptions.PermissionDenied(_("Already authenticated."))
+
+
+class SignInRememberMeView(SignInView):
+    serializer_class = SignInRememberMeSerializer
+
+    def set_session_expiry(self, request):
+        if request.DATA.get('remember_me'):
+            request.session.set_expiry(
+                userena_settings.USERENA_REMEMBER_ME_DAYS[1] * 86400
+                )
+        else:
+            request.session.set_expiry(0)
 
 
 class SignOutView(SecureRequiredMixin, APIView):
@@ -130,7 +142,7 @@ class SignOutView(SecureRequiredMixin, APIView):
         auth_logout(request)
         userena_signals.account_signout.send(sender=None, user=request.user)
         return Response({
-            'detail': _('Signed out successfully.')
+            API_MESSAGE_KEY: _('Signed out successfully.')
             })
 
 
@@ -150,7 +162,7 @@ class ChangePasswordView(SecureRequiredMixin, generics.GenericAPIView):
             serializer.save()  # simply saves user
             userena_signals.password_changed.send(sender=None, user=user)
             return Response({
-                    'detail': _('Password has been changed.')
+                    API_MESSAGE_KEY: _('Password has been changed.')
                     })
 
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
@@ -159,13 +171,14 @@ class ChangePasswordView(SecureRequiredMixin, generics.GenericAPIView):
 class CurrentUserView(APIView):
     allowed_methods = ['get']
 
+    @method_decorator(ensure_csrf_cookie)
+    def dispatch(self, *args, **kwargs):
+        return super(CurrentUserView, self).dispatch(*args, **kwargs)
+
     def get(self, request, format=None):
         ret = {}
         user = request.user
         if user.is_authenticated():
-            ret['username'] = user.username
-            ret['email'] = user.email
-            ret['first_name'] = user.first_name
-            ret['last_name'] = user.last_name
+            ret = get_user_serializer_class()(user).data
         return Response(ret)
 

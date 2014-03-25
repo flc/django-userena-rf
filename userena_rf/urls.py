@@ -6,7 +6,7 @@ from . import views
 
 urlpatterns = patterns('',
     url(r'^signin/$',
-        views.SignInView.as_view(),
+        views.SignInRememberMeView.as_view(),
         name='signin',
         ),
     url(r'^signout/$',
