@@ -19,7 +19,6 @@ from .settings import USERNAME_RE, PASSWORD_MIN_LENGTH
 
 
 User = get_user_model()
-attrs_dict = {'class': 'required'}
 
 
 class SignInSerializer(serializers.Serializer):
@@ -136,12 +135,12 @@ class SignUpSerializer(serializers.Serializer):
         max_length=User._meta.get_field('email').max_length,
     )
     password1 = serializers.CharField(
-        widget=widgets.PasswordInput(attrs=attrs_dict, render_value=False),
+        widget=widgets.PasswordInput(render_value=False),
         label=_("Password"),
         min_length=PASSWORD_MIN_LENGTH,
         )
     password2 = serializers.CharField(
-        widget=widgets.PasswordInput(attrs=attrs_dict, render_value=False),
+        widget=widgets.PasswordInput(render_value=False),
         label=_("Password Again"),
         min_length=PASSWORD_MIN_LENGTH,
         )
@@ -245,7 +244,7 @@ class SignUpOnlyEmailSerializer(SignUpSerializer):
 
 class SignUpTosSerializerMixin(object):
     tos = serializers.BooleanField(
-        widget=widgets.CheckboxInput(attrs=attrs_dict),
+        widget=widgets.CheckboxInput(),
         label=_('I have read and agree to the Terms of Service'),
         error_messages={'required': _('You must agree to the terms to register.')}
         )
@@ -259,8 +258,13 @@ class SignUpOnlyEmailTosSerializer(SignUpTosSerializerMixin, SignUpOnlyEmailSeri
     pass
 
 
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
 class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'first_name', 'last_name')
+
