@@ -19,13 +19,16 @@ from .settings import USERNAME_RE, PASSWORD_MIN_LENGTH
 
 
 User = get_user_model()
+PASSWORD_MAX_LENGTH = User._meta.get_field('password').max_length
 
 
 class SignInSerializer(serializers.Serializer):
     identification = serializers.CharField(
         max_length=User._meta.get_field('email').max_length
         )
-    password = serializers.CharField()
+    password = serializers.CharField(
+        widget=widgets.PasswordInput,
+        )
 
     def validate(self, attrs):
         user = authenticate(
@@ -56,40 +59,35 @@ class SignInRememberMeSerializer(SignInSerializer):
         )
 
 
-class ChangePasswordSerializer(serializers.Serializer):
-    error_messages = {
-        'password_mismatch': _("The two password fields didn't match."),
-        'password_incorrect': _("Current password was entered incorrectly. ")
-        }
-    current_password = serializers.CharField(
-        help_text=_('Current Password'),
-        )
+class PasswordSetSerializer(serializers.Serializer):
+    """
+    A serializer that lets a user change set his/her password without entering the
+    old password.
+    """
+    default_error_messages = dict(serializers.Serializer.default_error_messages, **{
+        u'password_mismatch': _("The two password fields didn't match."),
+    })
+
     password1 = serializers.CharField(
-        help_text=_('New Password'),
+        label=_("New password"),
+        widget=widgets.PasswordInput,
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
         )
     password2 = serializers.CharField(
-        help_text=_('New Password (again)'),
+        label=_("New password (again)"),
+        widget=widgets.PasswordInput,
         )
-
-    def validate_current_password(self, attrs, source):
-        user = self.object
-        password = attrs.get(source)
-        if user.has_usable_password() and not user.check_password(password):
-            raise serializers.ValidationError(
-                self.error_messages['password_incorrect']
-                )
-
-        return attrs
 
     def validate_password2(self, attrs, source):
         password2 = attrs.get(source)
         password1 = attrs.get('password1')
 
-        if password1 != password2:
-            raise serializers.ValidationError(
-                self.error_messages['password_mismatch']
+        if password1 and password2:
+            if password1 != password2:
+                raise serializers.ValidationError(
+                    self.error_messages['password_mismatch']
                 )
-
         return attrs
 
     def restore_object(self, attrs, instance=None):
@@ -99,25 +97,31 @@ class ChangePasswordSerializer(serializers.Serializer):
             return instance
 
 
-class ResetPasswordSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
+class PasswordChangeSerializer(PasswordSetSerializer):
+    """
+    A serializer that lets a user change his/her password by entering
+    their current password.
+    """
+    default_error_messages = dict(PasswordSetSerializer.default_error_messages, **{
+        u'password_incorrect': _("Your current password was entered incorrectly. "
+                                "Please enter it again."),
+    })
 
-    def validate_email(self, attrs, source):
-        if PROFILE_EMAIL_CONFIRMATION:
-            condition = EmailAddress.objects.filter(email__iexact=attrs["email"], verified=True).count() == 0
-        else:
-            condition = User.objects.get(email__iexact=attrs["email"], is_active=True).count() == 0
+    current_password = serializers.CharField(
+        label=_("Current Password"),
+        widget=widgets.PasswordInput,
+        )
 
-        if condition is True:
-            raise serializers.ValidationError(_("Email address not verified for any user account"))
+    def validate_current_password(self, attrs, source):
+        user = self.object
+        password = attrs.get(source)
+
+        if not user.check_password(password):
+            raise serializers.ValidationError(
+                self.error_messages['password_incorrect']
+                )
 
         return attrs
-
-    def restore_object(self, attrs, instance=None):
-        """ create password reset for user """
-        password_reset = PasswordReset.objects.create_for_user(attrs["email"])
-
-        return password_reset
 
 
 class SignUpSerializer(serializers.Serializer):
@@ -135,14 +139,16 @@ class SignUpSerializer(serializers.Serializer):
         max_length=User._meta.get_field('email').max_length,
     )
     password1 = serializers.CharField(
-        widget=widgets.PasswordInput(render_value=False),
         label=_("Password"),
+        widget=widgets.PasswordInput(render_value=False),
         min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
         )
     password2 = serializers.CharField(
-        widget=widgets.PasswordInput(render_value=False),
         label=_("Password Again"),
-        min_length=PASSWORD_MIN_LENGTH,
+        widget=widgets.PasswordInput(render_value=False),
+        # min_length=PASSWORD_MIN_LENGTH,
+        # max_length=PASSWORD_MAX_LENGTH,
         )
 
     def validate_username(self, attrs, source):

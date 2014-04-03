@@ -29,10 +29,11 @@ from .permissions import IsNotAuthenticated
 from .serializers import (
     SignInSerializer,
     SignInRememberMeSerializer,
-    ChangePasswordSerializer,
     SignUpSerializer,
     SignUpOnlyEmailSerializer,
     PasswordResetSerializer,
+    PasswordSetSerializer,
+    PasswordChangeSerializer,
     )
 from .mixins import SecureRequiredMixin
 from .helpers import get_user_serializer_class
@@ -157,28 +158,6 @@ class SignOutView(SecureRequiredMixin, APIView):
             })
 
 
-class ChangePasswordView(SecureRequiredMixin, generics.GenericAPIView):
-    allowed_methods = ['post']
-
-    authentication_classes = (TokenAuthentication, SessionAuthentication)
-    permission_classes = (IsAuthenticated,)
-    serializer_class = ChangePasswordSerializer
-
-    def post(self, request, format=None):
-        user = request.user
-        serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.DATA, instance=user)
-
-        if serializer.is_valid():
-            serializer.save()  # simply saves user
-            userena_signals.password_changed.send(sender=None, user=user)
-            return Response({
-                    API_MESSAGE_KEY: _('Password has been changed.')
-                    })
-
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-
 class PasswordResetView(SecureRequiredMixin, generics.GenericAPIView):
     allowed_methods = ['post']
 
@@ -236,7 +215,7 @@ class PasswordResetView(SecureRequiredMixin, generics.GenericAPIView):
                             )
                 else:
                     html_email = None
-                print 'send_mail'
+
                 send_mail(
                     subject, email, self.from_email,
                     [user.email], #html_message=html_email,
@@ -253,6 +232,32 @@ class PasswordResetView(SecureRequiredMixin, generics.GenericAPIView):
                     })
 
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+
+class PasswordSetView(SecureRequiredMixin, generics.GenericAPIView):
+    allowed_methods = ['post']  # or should this be a PUT?
+    authentication_classes = (TokenAuthentication, SessionAuthentication)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = PasswordSetSerializer
+
+    def post(self, request, format=None):
+        user = request.user
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.DATA, instance=user)
+
+        if serializer.is_valid():
+            serializer.save()  # saves user
+            userena_signals.password_complete.send(sender=None,
+                                                   user=user)
+            return Response({
+                API_MESSAGE_KEY: _("Password successfully changed.")
+                })
+
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+
+class PasswordChangeView(PasswordSetView):
+    serializer_class = PasswordChangeSerializer
 
 
 class CurrentUserView(APIView):
