@@ -34,6 +34,7 @@ from .serializers import (
     PasswordResetSerializer,
     PasswordSetSerializer,
     PasswordChangeSerializer,
+    EmailChangeSerializer,
     )
 from .mixins import SecureRequiredMixin
 from .helpers import get_user_serializer_class
@@ -63,6 +64,29 @@ class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
             return SignUpOnlyEmailSerializer
         return SignUpSerializer
 
+    def send_signup_signal(self, new_user):
+        # Send the signup complete signal
+        userena_signals.signup_complete.send(sender=None,
+                                             user=new_user)
+
+    def signout_signin(self, request, new_user):
+        # A new signed user should logout the old one.
+        if request.user.is_authenticated():
+            auth_logout(request)
+
+        signed_in = False
+        if (userena_settings.USERENA_SIGNIN_AFTER_SIGNUP and
+            not userena_settings.USERENA_ACTIVATION_REQUIRED):
+            new_user = authenticate(
+                identification=new_user.email,
+                check_password=False,
+                )
+            auth_login(request, new_user)
+            userena_signals.account_signin.send(sender=None, user=new_user)
+            signed_in = True
+
+        return signed_in
+
     def post(self, request, format=None):
         serializer_class = self.get_serializer_class()
         serializer = serializer_class(data=request.DATA)
@@ -70,24 +94,8 @@ class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
         if serializer.is_valid():
             new_user = serializer.instance
 
-            # Send the signup complete signal
-            userena_signals.signup_complete.send(sender=None,
-                                                 user=new_user)
-
-            # A new signed user should logout the old one.
-            if request.user.is_authenticated():
-                auth_logout(request)
-
-            signed_in = False
-            if (userena_settings.USERENA_SIGNIN_AFTER_SIGNUP and
-                not userena_settings.USERENA_ACTIVATION_REQUIRED):
-                new_user = authenticate(
-                    identification=new_user.email,
-                    check_password=False,
-                    )
-                auth_login(request, new_user)
-                userena_signals.account_signin.send(sender=None, user=new_user)
-                signed_in = True
+            self.send_signup_signal(new_user)
+            signed_in = self.signout_signin(request, new_user)
 
             return Response({
                 API_MESSAGE_KEY: _('Signed up successfully.'),
@@ -258,6 +266,26 @@ class PasswordSetView(SecureRequiredMixin, generics.GenericAPIView):
 
 class PasswordChangeView(PasswordSetView):
     serializer_class = PasswordChangeSerializer
+
+
+class EmailChangeView(SecureRequiredMixin, generics.GenericAPIView):
+    allowed_methods = ['post']  # or should this be a PUT?
+    authentication_classes = (TokenAuthentication, SessionAuthentication)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = EmailChangeSerializer
+
+    def post(self, request, format=None):
+        user = request.user
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.DATA, instance=user)
+
+        if serializer.is_valid():
+            # serializer.save()  # saves user
+            return Response({
+                API_MESSAGE_KEY: _("Confirmation email has been sent.")
+                })
+
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class CurrentUserView(APIView):

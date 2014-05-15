@@ -268,6 +268,46 @@ class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
 
+class EmailChangeSerializer(serializers.Serializer):
+    default_error_messages = dict(serializers.Serializer.default_error_messages, **{
+        u'already_known': _(u"You're already known under this email."),
+        u'already_in_use': _(u"This email is already in use. Please supply a different email.")
+    })
+
+    email = serializers.EmailField(
+        label=_("New email"),
+        max_length=User._meta.get_field('email').max_length,
+    )
+
+    def validate_email(self, attrs, source):
+        """ Validate that the email is not already registered with another user """
+        user = self.object
+        email = attrs[source]
+
+        if email.lower() == user.email:
+            raise serializers.ValidationError(self.error_messages['already_known'])
+
+        query = User.objects.filter(email__iexact=email)\
+                            .exclude(email__iexact=user.email)
+        if query.exists():
+            raise serializers.ValidationError(self.error_messages['already_in_use'])
+
+        return attrs
+
+    def restore_object(self, attrs, instance):
+        """
+        Save method calls :func:`user.change_email()` method which sends out an
+        email with an verification key to verify and with it enable this new
+        email address.
+        """
+        assert instance is not None, 'Only update is allowed'
+        user = instance
+        email = attrs['email']
+        if instance is not None:
+            user.userena_signup.change_email(email)
+            return instance
+
+
 class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
