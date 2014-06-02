@@ -62,21 +62,22 @@ class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
     def get_serializer_class(self):
         if userena_settings.USERENA_WITHOUT_USERNAMES:
             return SignUpOnlyEmailSerializer
-        return SignUpSerializer
+        return self.serializer_class
 
     def send_signup_signal(self, new_user):
         # Send the signup complete signal
         userena_signals.signup_complete.send(sender=None,
                                              user=new_user)
 
-    def signout_signin(self, request, new_user):
+    def signout_signin(self, request, new_user, force_signin=False):
         # A new signed user should logout the old one.
         if request.user.is_authenticated():
             auth_logout(request)
 
         signed_in = False
-        if (userena_settings.USERENA_SIGNIN_AFTER_SIGNUP and
-            not userena_settings.USERENA_ACTIVATION_REQUIRED):
+        if ((userena_settings.USERENA_SIGNIN_AFTER_SIGNUP and
+            not userena_settings.USERENA_ACTIVATION_REQUIRED) or
+            force_signin):
             new_user = authenticate(
                 identification=new_user.email,
                 check_password=False,

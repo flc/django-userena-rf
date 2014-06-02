@@ -210,6 +210,15 @@ class SignUpSerializer(serializers.Serializer):
                     )
         return attrs
 
+    def create_user(self, username, email, password):
+        return UserenaSignup.objects.create_user(
+            username,
+            email,
+            password,
+            active=not userena_settings.USERENA_ACTIVATION_REQUIRED,
+            send_email=userena_settings.USERENA_ACTIVATION_REQUIRED,
+            )
+
     def restore_object(self, attrs, instance=None):
         """
         Instantiate a new User instance.
@@ -222,13 +231,7 @@ class SignUpSerializer(serializers.Serializer):
             attrs['password1'],
             )
 
-        user = UserenaSignup.objects.create_user(
-            username,
-            email,
-            password,
-            active=not userena_settings.USERENA_ACTIVATION_REQUIRED,
-            send_email=userena_settings.USERENA_ACTIVATION_REQUIRED,
-            )
+        user = self.create_user(username, email, password)
         self.instance = user
 
         return user
