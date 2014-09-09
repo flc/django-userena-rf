@@ -283,6 +283,8 @@ class EmailChangeView(SecureRequiredMixin, generics.GenericAPIView):
         if serializer.is_valid():
             # serializer.save()  # saves user
             return Response({
+                'email': user.email,
+                'email_unconfirmed': user.userena_signup.email_unconfirmed,
                 API_MESSAGE_KEY: _("Confirmation email has been sent.")
                 })
 
