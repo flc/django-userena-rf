@@ -27,7 +27,7 @@ class SignInSerializer(serializers.Serializer):
         max_length=User._meta.get_field('email').max_length
         )
     password = serializers.CharField(
-        widget=widgets.PasswordInput,
+        style={'input_type': 'password'},
         )
 
     def validate(self, attrs):
@@ -70,13 +70,13 @@ class PasswordSetSerializer(serializers.Serializer):
 
     password1 = serializers.CharField(
         label=_("New password"),
-        widget=widgets.PasswordInput,
+        style={'input_type': 'password'},
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
         )
     password2 = serializers.CharField(
         label=_("New password (again)"),
-        widget=widgets.PasswordInput,
+        style={'input_type': 'password'},
         )
 
     def validate_password2(self, attrs, source):
@@ -109,7 +109,7 @@ class PasswordChangeSerializer(PasswordSetSerializer):
 
     current_password = serializers.CharField(
         label=_("Current Password"),
-        widget=widgets.PasswordInput,
+        style={'input_type': 'password'},
         )
 
     def validate_current_password(self, attrs, source):
@@ -140,13 +140,13 @@ class SignUpSerializer(serializers.Serializer):
     )
     password1 = serializers.CharField(
         label=_("Password"),
-        widget=widgets.PasswordInput(render_value=False),
+        style={'input_type': 'password'},
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
         )
     password2 = serializers.CharField(
         label=_("Password Again"),
-        widget=widgets.PasswordInput(render_value=False),
+        style={'input_type': 'password'},
         # min_length=PASSWORD_MIN_LENGTH,
         # max_length=PASSWORD_MAX_LENGTH,
         )
@@ -253,7 +253,6 @@ class SignUpOnlyEmailSerializer(SignUpSerializer):
 
 class SignUpTosSerializerMixin(object):
     tos = serializers.BooleanField(
-        widget=widgets.CheckboxInput(),
         label=_('I have read and agree to the Terms of Service'),
         error_messages={'required': _('You must agree to the terms to register.')}
         )
