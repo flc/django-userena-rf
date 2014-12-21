@@ -301,7 +301,7 @@ class EmailChangeSerializer(serializers.Serializer):
         user = instance
         email = validated_data['email']
         user.userena_signup.change_email(email)
-        return instance
+        return user
 
     def create(self, validated_data):
         assert False, 'Only update is allowed'
