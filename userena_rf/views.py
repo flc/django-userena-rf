@@ -90,10 +90,10 @@ class SignUpView(SecureRequiredMixin, generics.GenericAPIView):
 
     def post(self, request, format=None):
         serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.DATA)
+        serializer = serializer_class(data=request.data)
 
         if serializer.is_valid():
-            new_user = serializer.instance
+            new_user = serializer.user
 
             self.send_signup_signal(new_user)
             signed_in = self.signout_signin(request, new_user)
@@ -119,10 +119,10 @@ class SignInView(SecureRequiredMixin, generics.GenericAPIView):
 
     def post(self, request, format=None):
         serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.DATA)
+        serializer = serializer_class(data=request.data)
 
         if serializer.is_valid():
-            user = serializer.instance
+            user = serializer.user
             auth_login(request, user)
 
             self.set_session_expiry(request)
@@ -145,7 +145,7 @@ class SignInRememberMeView(SignInView):
     serializer_class = SignInRememberMeSerializer
 
     def set_session_expiry(self, request):
-        if request.DATA.get('remember_me'):
+        if request.data.get('remember_me'):
             request.session.set_expiry(
                 userena_settings.USERENA_REMEMBER_ME_DAYS[1] * 86400
                 )
@@ -183,7 +183,7 @@ class PasswordResetView(SecureRequiredMixin, generics.GenericAPIView):
 
     def post(self, request, format=None):
         serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.DATA)
+        serializer = serializer_class(data=request.data)
 
         domain_override = None  # used by admin?
         token_generator = self.token_generator
@@ -252,7 +252,7 @@ class PasswordSetView(SecureRequiredMixin, generics.GenericAPIView):
     def post(self, request, format=None):
         user = request.user
         serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.DATA, instance=user)
+        serializer = serializer_class(data=request.data, instance=user)
 
         if serializer.is_valid():
             serializer.save()  # saves user
@@ -278,7 +278,7 @@ class EmailChangeView(SecureRequiredMixin, generics.GenericAPIView):
     def post(self, request, format=None):
         user = request.user
         serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.DATA, instance=user)
+        serializer = serializer_class(data=request.data, instance=user)
 
         if serializer.is_valid():
             # serializer.save()  # saves user
