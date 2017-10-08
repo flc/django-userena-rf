@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.conf import settings
 from django.contrib.auth import views as auth_views
 
@@ -10,7 +10,7 @@ from userena import views as userena_views
 from . import views
 
 
-urlpatterns = patterns('',
+urlpatterns = [
     url(r'^signin/$',
         views.SignInRememberMeView.as_view(),
         name='signin',
@@ -59,4 +59,4 @@ urlpatterns = patterns('',
         views.CurrentUserView.as_view(),
         name='current-user',
         ),
-)
+]
